@@ -12,7 +12,7 @@ Aplicación frontend desarrollada con [Next.js](https://nextjs.org) para compara
 
 ### 1. Levantar el backend
 
-Antes de iniciar el frontend, asegurate de tener el backend corriendo en `http://localhost:8080`. Podés consultar el README del proyecto backend (`challenge-backend/`) para ver las instrucciones de ejecución.
+Antes de iniciar el frontend, asegurate de tener el backend corriendo en `http://localhost:8080`. Podés consultar el README del proyecto backend ([https://github.com/santiagojpaez/meli-challenge](https://github.com/santiagojpaez/meli-challenge)) para ver las instrucciones de ejecución.
 
 ### 2. Instalar dependencias del frontend
 
