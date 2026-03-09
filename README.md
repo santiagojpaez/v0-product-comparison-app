@@ -1,35 +1,38 @@
-# v0-product-comparison-app
+# Product Comparison App (Frontend)
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [v0](https://v0.app).
+Aplicación frontend desarrollada con [Next.js](https://nextjs.org) para comparar productos. Permite navegar categorías, explorar productos y realizar comparaciones entre ellos.
 
-## Built with v0
+## Requisitos previos
 
-This repository is linked to a [v0](https://v0.app) project. You can continue developing by visiting the link below -- start new chats to make changes, and v0 will push commits directly to this repo. Every merge to `main` will automatically deploy.
+- **Node.js** (v18 o superior)
+- **pnpm** (gestor de paquetes)
+- **Backend corriendo en `http://localhost:8080`**: esta aplicación consume la API REST del backend. Sin el backend activo, la app no podrá cargar categorías, productos ni comparaciones.
 
-[Continue working on v0 →](https://v0.app/chat/projects/prj_lPQqJsm4q9niEwvMZjogcn7iHGGK)
+## Cómo ejecutar el sistema
 
-## Getting Started
+### 1. Levantar el backend
 
-First, run the development server:
+Antes de iniciar el frontend, asegurate de tener el backend corriendo en `http://localhost:8080`. Podés consultar el README del proyecto backend (`challenge-backend/`) para ver las instrucciones de ejecución.
+
+### 2. Instalar dependencias del frontend
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
+```
+
+### 3. Iniciar el servidor de desarrollo
+
+```bash
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+La aplicación estará disponible en [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts disponibles
 
-## Learn More
-
-To learn more, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-- [v0 Documentation](https://v0.app/docs) - learn about v0 and how to use it.
-
-<a href="https://v0.app/chat/api/kiro/clone/santiagojpaez/v0-product-comparison-app" alt="Open in Kiro"><img src="https://pdgvvgmkdvyeydso.public.blob.vercel-storage.com/open%20in%20kiro.svg?sanitize=true" /></a>
+| Comando        | Descripción                        |
+| -------------- | ---------------------------------- |
+| `pnpm dev`     | Inicia el servidor de desarrollo   |
+| `pnpm build`   | Genera el build de producción      |
+| `pnpm start`   | Inicia el servidor de producción   |
+| `pnpm lint`    | Ejecuta el linter (ESLint)         |
