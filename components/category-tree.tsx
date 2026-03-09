@@ -3,11 +3,11 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { ChevronRight, ChevronDown, Folder, FolderOpen } from 'lucide-react';
-import type { Category } from '@/lib/types';
+import type { CategoryTreeDTO } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 interface CategoryTreeProps {
-  categories: Category[];
+  categories: CategoryTreeDTO[];
 }
 
 export function CategoryTree({ categories }: CategoryTreeProps) {
@@ -24,7 +24,7 @@ export function CategoryTree({ categories }: CategoryTreeProps) {
 }
 
 interface CategoryNodeProps {
-  category: Category;
+  category: CategoryTreeDTO;
   level: number;
 }
 

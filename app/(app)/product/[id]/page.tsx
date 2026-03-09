@@ -13,10 +13,11 @@ import {
   ShoppingCart,
   Plus,
   Check,
-  Info 
+  Info,
+  MapPin
 } from 'lucide-react';
 import { getProduct } from '@/lib/api';
-import type { Product, ProductAttribute } from '@/lib/types';
+import type { ProductDetailDTO, AttributeGroupValueDTO } from '@/lib/types';
 import { useComparison } from '@/lib/comparison-context';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -27,13 +28,13 @@ interface ProductDetailPageProps {
 
 export default function ProductDetailPage({ params }: ProductDetailPageProps) {
   const { id } = use(params);
-  const [product, setProduct] = useState<Product | null>(null);
+  const [product, setProduct] = useState<ProductDetailDTO | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
 
   const { addProduct, isInComparison, canAdd } = useComparison();
-  const inComparison = product ? isInComparison(product.id) : false;
+  const inComparison = product ? isInComparison(product.productSummary.id) : false;
 
   useEffect(() => {
     async function loadProduct() {
@@ -43,7 +44,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
         const data = await getProduct(id);
         setProduct(data);
         // Expand all groups by default
-        const groups = new Set(data.attributes.map(a => a.groupId));
+        const groups = new Set(data.attributeGroups.map(g => g.groupId));
         setExpandedGroups(groups);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error al cargar el producto');
@@ -54,7 +55,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
     loadProduct();
   }, [id]);
 
-  const toggleGroup = (groupId: string) => {
+  const toggleGroup = (groupId: number) => {
     setExpandedGroups((prev) => {
       const next = new Set(prev);
       if (next.has(groupId)) {
@@ -68,18 +69,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
 
   const handleAddToComparison = () => {
     if (product && !inComparison && canAdd) {
-      addProduct({
-        id: product.id,
-        name: product.name,
-        imageUrl: product.imageUrl,
-        condition: product.condition,
-        price: product.price,
-        currency: product.currency,
-        originalAmount: product.originalAmount,
-        rating: product.rating,
-        ratingCount: product.ratingCount,
-        freeShipping: product.freeShipping,
-      });
+      addProduct(product.productSummary);
     }
   };
 
@@ -109,29 +99,19 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
     );
   }
 
+  const summary = product.productSummary;
+
   const conditionConfig = {
     NEW: { label: 'Nuevo', className: 'bg-[#00A650] text-white' },
     USED: { label: 'Usado', className: 'bg-[#666666] text-white' },
     REFURBISHED: { label: 'Reacondicionado', className: 'bg-[#FF7733] text-white' },
   };
 
-  const condition = conditionConfig[product.condition];
+  const condition = conditionConfig[summary.condition];
 
-  const discountPercentage = product.originalAmount
-    ? Math.round((1 - product.price / product.originalAmount) * 100)
+  const discountPercentage = summary.price.originalAmount
+    ? Math.round((1 - summary.price.amount / summary.price.originalAmount) * 100)
     : null;
-
-  // Group attributes by group
-  const attributesByGroup = product.attributes.reduce((acc, attr) => {
-    if (!acc[attr.groupId]) {
-      acc[attr.groupId] = {
-        groupName: attr.groupName,
-        attributes: [],
-      };
-    }
-    acc[attr.groupId].attributes.push(attr);
-    return acc;
-  }, {} as Record<string, { groupName: string; attributes: ProductAttribute[] }>);
 
   return (
     <div>
@@ -140,12 +120,16 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
         <Link href="/" className="hover:text-[#3483FA]">
           Inicio
         </Link>
+        {product.category && (
+          <>
+            <ChevronRight className="h-4 w-4" />
+            <Link href={`/category/${product.category.id}`} className="hover:text-[#3483FA]">
+              {product.category.name}
+            </Link>
+          </>
+        )}
         <ChevronRight className="h-4 w-4" />
-        <Link href={`/category/${product.category.id}`} className="hover:text-[#3483FA]">
-          {product.category.name}
-        </Link>
-        <ChevronRight className="h-4 w-4" />
-        <span className="line-clamp-1 text-black">{product.name}</span>
+        <span className="line-clamp-1 text-black">{summary.name}</span>
       </div>
 
       {/* Main Content */}
@@ -153,14 +137,20 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
         <div className="grid gap-8 lg:grid-cols-2">
           {/* Image */}
           <div className="relative aspect-square overflow-hidden rounded-md bg-white">
-            <Image
-              src={product.imageUrl}
-              alt={product.name}
-              fill
-              className="object-contain"
-              crossOrigin="anonymous"
-              priority
-            />
+            {summary.imageUrl ? (
+              <Image
+                src={summary.imageUrl}
+                alt={summary.name}
+                fill
+                className="object-contain"
+                crossOrigin="anonymous"
+                priority
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center bg-gray-100 text-gray-400">
+                Sin imagen
+              </div>
+            )}
           </div>
 
           {/* Details */}
@@ -176,40 +166,47 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
             </span>
 
             {/* Name */}
-            <h1 className="mb-4 text-xl font-medium text-black">{product.name}</h1>
+            <h1 className="mb-4 text-xl font-medium text-black">{summary.name}</h1>
+
+            {/* Description */}
+            {summary.description && (
+              <p className="mb-4 text-sm text-[#666666]">{summary.description}</p>
+            )}
 
             {/* Rating */}
-            <div className="mb-4 flex items-center gap-2">
-              <div className="flex">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <Star
-                    key={star}
-                    className={cn(
-                      'h-4 w-4',
-                      star <= Math.round(product.rating)
-                        ? 'fill-[#FFE600] text-[#FFE600]'
-                        : 'fill-gray-200 text-gray-200'
-                    )}
-                  />
-                ))}
+            {summary.rating !== null && (
+              <div className="mb-4 flex items-center gap-2">
+                <div className="flex">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star
+                      key={star}
+                      className={cn(
+                        'h-4 w-4',
+                        star <= Math.round(summary.rating!)
+                          ? 'fill-[#FFE600] text-[#FFE600]'
+                          : 'fill-gray-200 text-gray-200'
+                      )}
+                    />
+                  ))}
+                </div>
+                <span className="text-sm text-[#3483FA]">
+                  {summary.rating.toFixed(1)}
+                </span>
               </div>
-              <span className="text-sm text-[#3483FA]">
-                {product.rating.toFixed(1)} ({product.ratingCount} opiniones)
-              </span>
-            </div>
+            )}
 
             {/* Price */}
             <div className="mb-4">
-              {product.originalAmount && (
+              {summary.price.originalAmount && (
                 <p className="text-sm text-[#999999] line-through">
-                  {product.currency} {product.originalAmount.toLocaleString()}
+                  {summary.price.currency} {summary.price.originalAmount.toLocaleString()}
                 </p>
               )}
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-light text-black">
-                  {product.currency} {product.price.toLocaleString()}
+                  {summary.price.currency} {summary.price.amount.toLocaleString()}
                 </span>
-                {discountPercentage && (
+                {discountPercentage && discountPercentage > 0 && (
                   <span className="text-lg font-medium text-[#00A650]">
                     {discountPercentage}% OFF
                   </span>
@@ -218,35 +215,75 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
             </div>
 
             {/* Shipping */}
-            {product.freeShipping && (
-              <div className="mb-4 flex items-center gap-2 text-[#00A650]">
-                <Truck className="h-5 w-5" />
-                <span className="font-medium">Envío gratis</span>
+            <div className="mb-4 space-y-2">
+              {summary.shipping.freeShipping && (
+                <div className="flex items-center gap-2 text-[#00A650]">
+                  <Truck className="h-5 w-5" />
+                  <span className="font-medium">Envío gratis</span>
+                </div>
+              )}
+              {summary.shipping.storePickup && (
+                <div className="flex items-center gap-2 text-[#3483FA]">
+                  <MapPin className="h-5 w-5" />
+                  <span>Retiro en tienda disponible</span>
+                </div>
+              )}
+            </div>
+
+            {/* Color */}
+            {summary.color && (
+              <div className="mb-4 text-sm">
+                <span className="text-[#666666]">Color: </span>
+                <span className="font-medium text-black">{summary.color}</span>
               </div>
             )}
 
-            {/* Stock */}
-            <div className="mb-4 flex items-center gap-4">
-              <div className="flex items-center gap-2 text-sm text-black">
-                <Package className="h-4 w-4 text-[#666666]" />
-                <span>Stock disponible: {product.stock}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-black">
-                <ShoppingCart className="h-4 w-4 text-[#666666]" />
-                <span>{product.unitsSold} vendidos</span>
-              </div>
+            {/* Stock & Sold */}
+            <div className="mb-4 flex flex-wrap items-center gap-4">
+              {product.availableQuantity !== null && (
+                <div className="flex items-center gap-2 text-sm text-black">
+                  <Package className="h-4 w-4 text-[#666666]" />
+                  <span>Stock disponible: {product.availableQuantity}</span>
+                </div>
+              )}
+              {product.soldQuantity !== null && (
+                <div className="flex items-center gap-2 text-sm text-black">
+                  <ShoppingCart className="h-4 w-4 text-[#666666]" />
+                  <span>{product.soldQuantity} vendidos</span>
+                </div>
+              )}
             </div>
 
+            {/* Size & Weight */}
+            {(product.size || product.weight) && (
+              <div className="mb-4 flex flex-wrap gap-4 text-sm">
+                {product.size && (
+                  <div>
+                    <span className="text-[#666666]">Tamaño: </span>
+                    <span className="text-black">{product.size}</span>
+                  </div>
+                )}
+                {product.weight !== null && (
+                  <div>
+                    <span className="text-[#666666]">Peso: </span>
+                    <span className="text-black">{product.weight} kg</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Category Link */}
-            <div className="mb-6 text-sm">
-              <span className="text-[#666666]">Categoría: </span>
-              <Link
-                href={`/category/${product.category.id}`}
-                className="text-[#3483FA] hover:underline"
-              >
-                {product.category.name}
-              </Link>
-            </div>
+            {product.category && (
+              <div className="mb-6 text-sm">
+                <span className="text-[#666666]">Categoría: </span>
+                <Link
+                  href={`/category/${product.category.id}`}
+                  className="text-[#3483FA] hover:underline"
+                >
+                  {product.category.name}
+                </Link>
+              </div>
+            )}
 
             {/* Add to Comparison */}
             <Button
@@ -282,43 +319,62 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
       </div>
 
       {/* Attributes */}
-      <div className="mt-6">
-        <h2 className="mb-4 text-xl font-medium text-black">Características</h2>
-        <div className="space-y-2">
-          {Object.entries(attributesByGroup).map(([groupId, group]) => (
-            <div key={groupId} className="overflow-hidden rounded-md bg-white shadow-sm">
-              <button
-                onClick={() => toggleGroup(groupId)}
-                className="flex w-full items-center justify-between bg-[#EBEBEB] px-4 py-3 text-left"
-              >
-                <span className="text-sm font-medium uppercase text-[#666666]">
-                  {group.groupName}
-                </span>
-                {expandedGroups.has(groupId) ? (
-                  <ChevronUp className="h-4 w-4 text-[#666666]" />
-                ) : (
-                  <ChevronDown className="h-4 w-4 text-[#666666]" />
-                )}
-              </button>
-              {expandedGroups.has(groupId) && (
-                <div className="grid grid-cols-1 gap-px bg-gray-200 md:grid-cols-2">
-                  {group.attributes.map((attr) => (
-                    <div
-                      key={attr.attributeId}
-                      className="flex justify-between bg-white px-4 py-3"
-                    >
-                      <span className="text-sm text-[#666666]">{attr.name}</span>
-                      <span className="text-sm font-medium text-black">
-                        {attr.displayValue || '-'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
+      {product.attributeGroups.length > 0 && (
+        <div className="mt-6">
+          <h2 className="mb-4 text-xl font-medium text-black">Características</h2>
+          <div className="space-y-2">
+            {product.attributeGroups.map((group) => (
+              <AttributeGroupSection
+                key={group.groupId}
+                group={group}
+                isExpanded={expandedGroups.has(group.groupId)}
+                onToggle={() => toggleGroup(group.groupId)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface AttributeGroupSectionProps {
+  group: AttributeGroupValueDTO;
+  isExpanded: boolean;
+  onToggle: () => void;
+}
+
+function AttributeGroupSection({ group, isExpanded, onToggle }: AttributeGroupSectionProps) {
+  return (
+    <div className="overflow-hidden rounded-md bg-white shadow-sm">
+      <button
+        onClick={onToggle}
+        className="flex w-full items-center justify-between bg-[#EBEBEB] px-4 py-3 text-left"
+      >
+        <span className="text-sm font-medium uppercase text-[#666666]">
+          {group.groupName}
+        </span>
+        {isExpanded ? (
+          <ChevronUp className="h-4 w-4 text-[#666666]" />
+        ) : (
+          <ChevronDown className="h-4 w-4 text-[#666666]" />
+        )}
+      </button>
+      {isExpanded && (
+        <div className="grid grid-cols-1 gap-px bg-gray-200 md:grid-cols-2">
+          {group.attributes.map((attr, index) => (
+            <div
+              key={index}
+              className="flex justify-between bg-white px-4 py-3"
+            >
+              <span className="text-sm text-[#666666]">{attr.displayName}</span>
+              <span className="text-sm font-medium text-black">
+                {attr.displayValue || '-'}
+              </span>
             </div>
           ))}
         </div>
-      </div>
+      )}
     </div>
   );
 }

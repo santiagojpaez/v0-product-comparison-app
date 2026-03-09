@@ -3,12 +3,12 @@
 import { useEffect, useState } from 'react';
 import { Info } from 'lucide-react';
 import { getCategories } from '@/lib/api';
-import type { Category } from '@/lib/types';
+import type { CategoryTreeDTO } from '@/lib/types';
 import { CategoryTree } from '@/components/category-tree';
 import { Button } from '@/components/ui/button';
 
 export default function HomePage() {
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<CategoryTreeDTO[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -120,9 +120,9 @@ function FeatureCard({ title, description }: { title: string; description: strin
   );
 }
 
-function countCategories(categories: Category[]): number {
+function countCategories(categories: CategoryTreeDTO[]): number {
   let count = 0;
-  function traverse(cats: Category[]) {
+  function traverse(cats: CategoryTreeDTO[]) {
     for (const cat of cats) {
       count++;
       if (cat.children && cat.children.length > 0) {

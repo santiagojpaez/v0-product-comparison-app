@@ -15,14 +15,19 @@ import {
   GitCompare,
 } from 'lucide-react';
 import { compareProducts, compareProductsDiff } from '@/lib/api';
-import type { ComparisonResponse, ComparisonAttributeGroup } from '@/lib/types';
+import type { 
+  ComparisonDTO, 
+  ComparisonDiffDTO, 
+  ComparisonGroupDTO,
+  ProductSummaryDTO 
+} from '@/lib/types';
 import { useComparison } from '@/lib/comparison-context';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 export default function ComparisonPage() {
   const { products, removeProduct, clearProducts } = useComparison();
-  const [comparisonData, setComparisonData] = useState<ComparisonResponse | null>(null);
+  const [comparisonData, setComparisonData] = useState<ComparisonDTO | ComparisonDiffDTO | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,9 +35,9 @@ export default function ComparisonPage() {
   const [diffOnly, setDiffOnly] = useState(false);
 
   // Focused attributes
-  const [focusedAttributeIds, setFocusedAttributeIds] = useState<string[]>([]);
+  const [focusedAttributeIds, setFocusedAttributeIds] = useState<number[]>([]);
   const [showFilterPanel, setShowFilterPanel] = useState(false);
-  const [selectedFilters, setSelectedFilters] = useState<Set<string>>(new Set());
+  const [selectedFilters, setSelectedFilters] = useState<Set<number>>(new Set());
 
   // Collapsed groups
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
@@ -51,7 +56,7 @@ export default function ComparisonPage() {
 
       const request = {
         productIds,
-        focusedAttributeIds,
+        focusedAttributeIds: focusedAttributeIds.length > 0 ? focusedAttributeIds : null,
       };
 
       const data = diffOnly
@@ -64,7 +69,7 @@ export default function ComparisonPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [productIds, focusedAttributeIds, diffOnly]);
+  }, [productIds.join(','), focusedAttributeIds, diffOnly]);
 
   useEffect(() => {
     loadComparison();
@@ -78,25 +83,25 @@ export default function ComparisonPage() {
     setDiffOnly(!diffOnly);
   };
 
-  const toggleGroup = (groupId: string) => {
+  const toggleGroup = (groupName: string) => {
     setCollapsedGroups((prev) => {
       const next = new Set(prev);
-      if (next.has(groupId)) {
-        next.delete(groupId);
+      if (next.has(groupName)) {
+        next.delete(groupName);
       } else {
-        next.add(groupId);
+        next.add(groupName);
       }
       return next;
     });
   };
 
-  const handleFilterToggle = (attributeId: string) => {
+  const handleFilterToggle = (attributeDefId: number) => {
     setSelectedFilters((prev) => {
       const next = new Set(prev);
-      if (next.has(attributeId)) {
-        next.delete(attributeId);
+      if (next.has(attributeDefId)) {
+        next.delete(attributeDefId);
       } else {
-        next.add(attributeId);
+        next.add(attributeDefId);
       }
       return next;
     });
@@ -113,16 +118,22 @@ export default function ComparisonPage() {
   };
 
   // Get all available attributes for filtering
-  const getAllAttributes = (): { id: string; name: string; groupName: string }[] => {
+  const getAllAttributes = (): { id: number; name: string; groupName: string }[] => {
     if (!comparisonData) return [];
-    const attrs: { id: string; name: string; groupName: string }[] = [];
+    const attrs: { id: number; name: string; groupName: string }[] = [];
     comparisonData.attributeGroups.forEach((group) => {
       group.attributes.forEach((attr) => {
-        attrs.push({ id: attr.id, name: attr.name, groupName: group.name });
+        attrs.push({ id: attr.attributeDefId, name: attr.displayName, groupName: group.groupName });
       });
     });
     return attrs;
   };
+
+  // Check if we have missing attributes (only in full comparison mode)
+  const hasMissingAttributes = !diffOnly && 
+    comparisonData && 
+    'missingAttributes' in comparisonData && 
+    comparisonData.missingAttributes.length > 0;
 
   if (products.length === 0) {
     return (
@@ -173,22 +184,16 @@ export default function ComparisonPage() {
       </div>
 
       {/* Missing Attributes Banner */}
-      {comparisonData?.missingAttributes && comparisonData.missingAttributes.length > 0 && (
+      {hasMissingAttributes && (
         <div className="mb-4 rounded-md border border-yellow-300 bg-yellow-50 p-4">
           <div className="flex items-start gap-3">
             <AlertTriangle className="h-5 w-5 flex-shrink-0 text-yellow-600" />
             <div>
               <p className="font-medium text-yellow-800">Algunos atributos no están disponibles</p>
               <ul className="mt-2 space-y-1 text-sm text-yellow-700">
-                {comparisonData.missingAttributes.map((missing) => (
-                  <li key={missing.attributeId}>
-                    <strong>{missing.attributeName}</strong>: falta en{' '}
-                    {missing.productIds
-                      .map((pid) => {
-                        const product = comparisonData.products.find((p) => p.id === pid);
-                        return product?.name || pid;
-                      })
-                      .join(', ')}
+                {(comparisonData as ComparisonDTO).missingAttributes.map((missing, idx) => (
+                  <li key={idx}>
+                    <strong>{missing.attributeDisplayName}</strong>: falta en {missing.productName}
                   </li>
                 ))}
               </ul>
@@ -205,59 +210,11 @@ export default function ComparisonPage() {
 
           {/* Product cards */}
           {comparisonData?.products.map((product) => (
-            <div
+            <ProductHeaderCard
               key={product.id}
-              className="relative w-48 flex-shrink-0 rounded-md border-b-4 border-[#FFE600] bg-white p-4 shadow-sm"
-            >
-              <button
-                onClick={() => handleRemoveProduct(product.id)}
-                className="absolute right-2 top-2 rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                aria-label={`Quitar ${product.name}`}
-              >
-                <X className="h-4 w-4" />
-              </button>
-
-              <Link href={`/product/${product.id}`} className="block">
-                <div className="relative mx-auto mb-3 h-24 w-24">
-                  <Image
-                    src={product.imageUrl}
-                    alt={product.name}
-                    fill
-                    className="object-contain"
-                    crossOrigin="anonymous"
-                  />
-                </div>
-
-                <h3 className="mb-2 line-clamp-2 text-sm font-medium text-black">
-                  {product.name}
-                </h3>
-
-                <p className="mb-2 text-lg font-semibold text-black">
-                  {product.currency} {product.price.toLocaleString()}
-                </p>
-
-                <div className="mb-2 flex items-center gap-1">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <Star
-                      key={star}
-                      className={cn(
-                        'h-3 w-3',
-                        star <= Math.round(product.rating)
-                          ? 'fill-[#FFE600] text-[#FFE600]'
-                          : 'fill-gray-200 text-gray-200'
-                      )}
-                    />
-                  ))}
-                </div>
-
-                {product.freeShipping && (
-                  <div className="flex items-center gap-1 text-xs text-[#00A650]">
-                    <Truck className="h-3 w-3" />
-                    <span>Envío gratis</span>
-                  </div>
-                )}
-              </Link>
-            </div>
+              product={product}
+              onRemove={() => handleRemoveProduct(product.id)}
+            />
           ))}
         </div>
       </div>
@@ -372,11 +329,11 @@ export default function ComparisonPage() {
           <div style={{ minWidth: `${products.length * 200 + 150}px` }}>
             {comparisonData.attributeGroups.map((group) => (
               <AttributeGroupSection
-                key={group.id}
+                key={group.groupName}
                 group={group}
                 products={comparisonData.products}
-                isCollapsed={collapsedGroups.has(group.id)}
-                onToggle={() => toggleGroup(group.id)}
+                isCollapsed={collapsedGroups.has(group.groupName)}
+                onToggle={() => toggleGroup(group.groupName)}
                 focusedAttributeIds={focusedAttributeIds}
               />
             ))}
@@ -387,12 +344,80 @@ export default function ComparisonPage() {
   );
 }
 
+interface ProductHeaderCardProps {
+  product: ProductSummaryDTO;
+  onRemove: () => void;
+}
+
+function ProductHeaderCard({ product, onRemove }: ProductHeaderCardProps) {
+  return (
+    <div className="relative w-48 flex-shrink-0 rounded-md border-b-4 border-[#FFE600] bg-white p-4 shadow-sm">
+      <button
+        onClick={onRemove}
+        className="absolute right-2 top-2 rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+        aria-label={`Quitar ${product.name}`}
+      >
+        <X className="h-4 w-4" />
+      </button>
+
+      <Link href={`/product/${product.id}`} className="block">
+        <div className="relative mx-auto mb-3 h-24 w-24">
+          {product.imageUrl ? (
+            <Image
+              src={product.imageUrl}
+              alt={product.name}
+              fill
+              className="object-contain"
+              crossOrigin="anonymous"
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center bg-gray-100 text-xs text-gray-400">
+              Sin imagen
+            </div>
+          )}
+        </div>
+
+        <h3 className="mb-2 line-clamp-2 text-sm font-medium text-black">
+          {product.name}
+        </h3>
+
+        <p className="mb-2 text-lg font-semibold text-black">
+          {product.price.currency} {product.price.amount.toLocaleString()}
+        </p>
+
+        {product.rating !== null && (
+          <div className="mb-2 flex items-center gap-1">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <Star
+                key={star}
+                className={cn(
+                  'h-3 w-3',
+                  star <= Math.round(product.rating!)
+                    ? 'fill-[#FFE600] text-[#FFE600]'
+                    : 'fill-gray-200 text-gray-200'
+                )}
+              />
+            ))}
+          </div>
+        )}
+
+        {product.shipping.freeShipping && (
+          <div className="flex items-center gap-1 text-xs text-[#00A650]">
+            <Truck className="h-3 w-3" />
+            <span>Envío gratis</span>
+          </div>
+        )}
+      </Link>
+    </div>
+  );
+}
+
 interface AttributeGroupSectionProps {
-  group: ComparisonAttributeGroup;
-  products: ComparisonResponse['products'];
+  group: ComparisonGroupDTO;
+  products: ProductSummaryDTO[];
   isCollapsed: boolean;
   onToggle: () => void;
-  focusedAttributeIds: string[];
+  focusedAttributeIds: number[];
 }
 
 function AttributeGroupSection({
@@ -404,8 +429,8 @@ function AttributeGroupSection({
 }: AttributeGroupSectionProps) {
   // Sort attributes: focused ones first
   const sortedAttributes = [...group.attributes].sort((a, b) => {
-    const aFocused = focusedAttributeIds.includes(a.id);
-    const bFocused = focusedAttributeIds.includes(b.id);
+    const aFocused = focusedAttributeIds.includes(a.attributeDefId);
+    const bFocused = focusedAttributeIds.includes(b.attributeDefId);
     if (aFocused && !bFocused) return -1;
     if (!aFocused && bFocused) return 1;
     return 0;
@@ -418,7 +443,7 @@ function AttributeGroupSection({
         onClick={onToggle}
         className="flex w-full items-center justify-between bg-[#EBEBEB] px-4 py-3"
       >
-        <span className="text-sm font-medium uppercase text-[#666666]">{group.name}</span>
+        <span className="text-sm font-medium uppercase text-[#666666]">{group.groupName}</span>
         {isCollapsed ? (
           <ChevronDown className="h-4 w-4 text-[#666666]" />
         ) : (
@@ -430,11 +455,11 @@ function AttributeGroupSection({
       {!isCollapsed && (
         <div>
           {sortedAttributes.map((attr, index) => {
-            const isFocused = focusedAttributeIds.includes(attr.id);
+            const isFocused = focusedAttributeIds.includes(attr.attributeDefId);
 
             return (
               <div
-                key={attr.id}
+                key={attr.attributeDefId}
                 className={cn(
                   'flex',
                   index % 2 === 0 ? 'bg-white' : 'bg-[#F7F7F7]',
@@ -443,14 +468,14 @@ function AttributeGroupSection({
               >
                 {/* Attribute Name */}
                 <div className="w-36 flex-shrink-0 px-4 py-3">
-                  <span className="text-sm text-[#666666]">{attr.name}</span>
+                  <span className="text-sm text-[#666666]">{attr.displayName}</span>
                 </div>
 
                 {/* Values */}
                 {products.map((product) => {
                   const value = attr.values.find((v) => v.productId === product.id);
-                  const isWinner = value?.highlight;
-                  const hasValue = value?.displayValue !== null && value?.displayValue !== '';
+                  const isWinner = attr.highlight?.winnerIds.includes(product.id) ?? false;
+                  const hasValue = value?.displayValue !== null && value?.displayValue !== undefined;
 
                   return (
                     <div

@@ -1,11 +1,11 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
-import type { ProductListItem } from './types';
+import type { ProductSummaryDTO } from './types';
 
 interface ComparisonContextType {
-  products: ProductListItem[];
-  addProduct: (product: ProductListItem) => boolean;
+  products: ProductSummaryDTO[];
+  addProduct: (product: ProductSummaryDTO) => boolean;
   removeProduct: (productId: string) => void;
   clearProducts: () => void;
   isInComparison: (productId: string) => boolean;
@@ -17,9 +17,9 @@ const ComparisonContext = createContext<ComparisonContextType | null>(null);
 const MAX_PRODUCTS = 5;
 
 export function ComparisonProvider({ children }: { children: ReactNode }) {
-  const [products, setProducts] = useState<ProductListItem[]>([]);
+  const [products, setProducts] = useState<ProductSummaryDTO[]>([]);
 
-  const addProduct = useCallback((product: ProductListItem): boolean => {
+  const addProduct = useCallback((product: ProductSummaryDTO): boolean => {
     let added = false;
     setProducts((prev) => {
       if (prev.length >= MAX_PRODUCTS) return prev;

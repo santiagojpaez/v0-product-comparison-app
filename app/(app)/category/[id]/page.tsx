@@ -4,7 +4,7 @@ import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import { ChevronRight, Info } from 'lucide-react';
 import { getCategory, getCategoryProducts } from '@/lib/api';
-import type { Category, ProductListItem, PaginatedResponse } from '@/lib/types';
+import type { CategoryDetailDTO, ProductSummaryDTO, Page } from '@/lib/types';
 import { ProductGrid } from '@/components/product-grid';
 import { Button } from '@/components/ui/button';
 
@@ -14,8 +14,9 @@ interface CategoryProductsPageProps {
 
 export default function CategoryProductsPage({ params }: CategoryProductsPageProps) {
   const { id } = use(params);
-  const [category, setCategory] = useState<Category | null>(null);
-  const [productsData, setProductsData] = useState<PaginatedResponse<ProductListItem> | null>(null);
+  const categoryId = Number(id);
+  const [category, setCategory] = useState<CategoryDetailDTO | null>(null);
+  const [productsData, setProductsData] = useState<Page<ProductSummaryDTO> | null>(null);
   const [page, setPage] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,8 +27,8 @@ export default function CategoryProductsPage({ params }: CategoryProductsPagePro
         setIsLoading(true);
         setError(null);
         const [categoryData, products] = await Promise.all([
-          getCategory(id),
-          getCategoryProducts(id, page, 12),
+          getCategory(categoryId),
+          getCategoryProducts(categoryId, page, 12),
         ]);
         setCategory(categoryData);
         setProductsData(products);
@@ -38,7 +39,7 @@ export default function CategoryProductsPage({ params }: CategoryProductsPagePro
       }
     }
     loadData();
-  }, [id, page]);
+  }, [categoryId, page]);
 
   if (error) {
     return (
@@ -67,6 +68,14 @@ export default function CategoryProductsPage({ params }: CategoryProductsPagePro
             Inicio
           </Link>
           <ChevronRight className="h-4 w-4" />
+          {category.parent && (
+            <>
+              <Link href={`/category/${category.parent.id}`} className="hover:text-[#3483FA]">
+                {category.parent.name}
+              </Link>
+              <ChevronRight className="h-4 w-4" />
+            </>
+          )}
           <span className="text-black">{category.name}</span>
         </div>
       )}
@@ -77,7 +86,7 @@ export default function CategoryProductsPage({ params }: CategoryProductsPagePro
           {category?.name || 'Cargando...'}
         </h1>
         {category && (
-          <Link href={`/category/${id}/details`}>
+          <Link href={`/category/${categoryId}/details`}>
             <Button
               variant="outline"
               size="sm"

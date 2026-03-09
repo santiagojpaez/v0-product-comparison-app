@@ -10,9 +10,11 @@ import {
   Asterisk,
   Info,
   Folder,
+  CheckCircle,
+  XCircle,
 } from 'lucide-react';
 import { getCategory } from '@/lib/api';
-import type { Category } from '@/lib/types';
+import type { CategoryDetailDTO, ComparisonStrategy, AttributeDataType } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -22,7 +24,8 @@ interface CategoryDetailPageProps {
 
 export default function CategoryDetailPage({ params }: CategoryDetailPageProps) {
   const { id } = use(params);
-  const [category, setCategory] = useState<Category | null>(null);
+  const categoryId = Number(id);
+  const [category, setCategory] = useState<CategoryDetailDTO | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,7 +34,7 @@ export default function CategoryDetailPage({ params }: CategoryDetailPageProps) 
       try {
         setIsLoading(true);
         setError(null);
-        const data = await getCategory(id);
+        const data = await getCategory(categoryId);
         setCategory(data);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error al cargar la categoría');
@@ -40,7 +43,7 @@ export default function CategoryDetailPage({ params }: CategoryDetailPageProps) 
       }
     }
     loadCategory();
-  }, [id]);
+  }, [categoryId]);
 
   if (isLoading) {
     return (
@@ -68,7 +71,7 @@ export default function CategoryDetailPage({ params }: CategoryDetailPageProps) 
     );
   }
 
-  const strategyConfig = {
+  const strategyConfig: Record<ComparisonStrategy, { icon: typeof ArrowUp; label: string; className: string }> = {
     HIGHER_IS_BETTER: {
       icon: ArrowUp,
       label: 'Mayor es mejor',
@@ -86,10 +89,13 @@ export default function CategoryDetailPage({ params }: CategoryDetailPageProps) 
     },
   };
 
-  const dataTypeLabels = {
-    STRING: 'Texto',
+  const dataTypeLabels: Record<AttributeDataType, string> = {
     NUMBER: 'Número',
+    TEXT: 'Texto',
     BOOLEAN: 'Sí/No',
+    ENUM: 'Enumeración',
+    LIST: 'Lista',
+    RANGE: 'Rango',
   };
 
   return (
@@ -100,7 +106,15 @@ export default function CategoryDetailPage({ params }: CategoryDetailPageProps) 
           Inicio
         </Link>
         <ChevronRight className="h-4 w-4" />
-        <Link href={`/category/${id}`} className="hover:text-[#3483FA]">
+        {category.parent && (
+          <>
+            <Link href={`/category/${category.parent.id}`} className="hover:text-[#3483FA]">
+              {category.parent.name}
+            </Link>
+            <ChevronRight className="h-4 w-4" />
+          </>
+        )}
+        <Link href={`/category/${categoryId}`} className="hover:text-[#3483FA]">
           {category.name}
         </Link>
         <ChevronRight className="h-4 w-4" />
@@ -117,19 +131,19 @@ export default function CategoryDetailPage({ params }: CategoryDetailPageProps) 
             <h1 className="text-2xl font-medium text-black">{category.name}</h1>
 
             {/* Parent Category */}
-            {category.parentId && (
+            {category.parent && (
               <p className="mt-2 text-sm text-[#666666]">
                 Categoría padre:{' '}
                 <Link
-                  href={`/category/${category.parentId}/details`}
+                  href={`/category/${category.parent.id}/details`}
                   className="text-[#3483FA] hover:underline"
                 >
-                  Ver categoría padre
+                  {category.parent.name}
                 </Link>
               </p>
             )}
           </div>
-          <Link href={`/category/${id}`}>
+          <Link href={`/category/${categoryId}`}>
             <Button className="bg-[#FFE600] text-black hover:bg-[#FFD000]">
               Ver productos
             </Button>
@@ -138,11 +152,11 @@ export default function CategoryDetailPage({ params }: CategoryDetailPageProps) 
       </div>
 
       {/* Comparable Categories */}
-      {category.comparableCategories && category.comparableCategories.length > 0 && (
+      {category.comparableWith && category.comparableWith.length > 0 && (
         <div className="mb-6 rounded-md bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-lg font-medium text-black">Categorías comparables</h2>
           <div className="flex flex-wrap gap-2">
-            {category.comparableCategories.map((comp) => (
+            {category.comparableWith.map((comp) => (
               <Link
                 key={comp.id}
                 href={`/category/${comp.id}/details`}
@@ -161,10 +175,12 @@ export default function CategoryDetailPage({ params }: CategoryDetailPageProps) 
 
         {category.attributeGroups && category.attributeGroups.length > 0 ? (
           <div className="space-y-6">
-            {category.attributeGroups.map((group) => (
-              <div key={group.id}>
+            {category.attributeGroups
+              .sort((a, b) => a.displayOrder - b.displayOrder)
+              .map((group) => (
+              <div key={group.groupId}>
                 <h3 className="mb-3 text-sm font-medium uppercase text-[#666666]">
-                  {group.name}
+                  {group.groupName}
                 </h3>
                 <div className="overflow-hidden rounded-md border border-gray-200">
                   <table className="w-full">
@@ -179,49 +195,68 @@ export default function CategoryDetailPage({ params }: CategoryDetailPageProps) 
                         <th className="px-4 py-2 text-center text-sm font-medium text-[#666666]">
                           Requerido
                         </th>
+                        <th className="px-4 py-2 text-center text-sm font-medium text-[#666666]">
+                          Comparable
+                        </th>
                         <th className="px-4 py-2 text-left text-sm font-medium text-[#666666]">
-                          Comparación
+                          Estrategia
                         </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {group.attributes.map((attr, index) => {
-                        const strategy = strategyConfig[attr.comparisonStrategy];
-                        const StrategyIcon = strategy.icon;
+                      {group.attributes
+                        .sort((a, b) => a.displayOrder - b.displayOrder)
+                        .map((attr, index) => {
+                          const strategy = strategyConfig[attr.attributeDefinition.comparisonStrategy];
+                          const StrategyIcon = strategy.icon;
 
-                        return (
-                          <tr
-                            key={attr.id}
-                            className={cn(
-                              index % 2 === 0 ? 'bg-white' : 'bg-[#F7F7F7]'
-                            )}
-                          >
-                            <td className="px-4 py-3 text-sm text-black">
-                              {attr.name}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-[#666666]">
-                              {dataTypeLabels[attr.dataType]}
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              {attr.required ? (
-                                <Asterisk className="inline h-4 w-4 text-[#F23D4F]" />
-                              ) : (
-                                <span className="text-sm text-[#999999]">-</span>
+                          return (
+                            <tr
+                              key={attr.canonicalName}
+                              className={cn(
+                                index % 2 === 0 ? 'bg-white' : 'bg-[#F7F7F7]'
                               )}
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-2">
-                                <StrategyIcon
-                                  className={cn('h-4 w-4', strategy.className)}
-                                />
-                                <span className="text-sm text-[#666666]">
-                                  {strategy.label}
-                                </span>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
+                            >
+                              <td className="px-4 py-3">
+                                <div>
+                                  <span className="text-sm text-black">{attr.displayName}</span>
+                                  {attr.attributeDefinition.description && (
+                                    <p className="mt-0.5 text-xs text-[#999999]">
+                                      {attr.attributeDefinition.description}
+                                    </p>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-sm text-[#666666]">
+                                {dataTypeLabels[attr.dataType]}
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                {attr.isRequired ? (
+                                  <CheckCircle className="inline h-4 w-4 text-[#00A650]" />
+                                ) : (
+                                  <XCircle className="inline h-4 w-4 text-[#999999]" />
+                                )}
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                {attr.isComparable ? (
+                                  <CheckCircle className="inline h-4 w-4 text-[#00A650]" />
+                                ) : (
+                                  <XCircle className="inline h-4 w-4 text-[#999999]" />
+                                )}
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                  <StrategyIcon
+                                    className={cn('h-4 w-4', strategy.className)}
+                                  />
+                                  <span className="text-sm text-[#666666]">
+                                    {strategy.label}
+                                  </span>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                     </tbody>
                   </table>
                 </div>
@@ -240,8 +275,12 @@ export default function CategoryDetailPage({ params }: CategoryDetailPageProps) 
         <h3 className="mb-3 text-sm font-medium text-[#666666]">Leyenda</h3>
         <div className="flex flex-wrap gap-6 text-sm">
           <div className="flex items-center gap-2">
-            <Asterisk className="h-4 w-4 text-[#F23D4F]" />
-            <span className="text-[#666666]">Atributo requerido</span>
+            <CheckCircle className="h-4 w-4 text-[#00A650]" />
+            <span className="text-[#666666]">Requerido / Comparable</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <XCircle className="h-4 w-4 text-[#999999]" />
+            <span className="text-[#666666]">Opcional / No comparable</span>
           </div>
           <div className="flex items-center gap-2">
             <ArrowUp className="h-4 w-4 text-[#00A650]" />

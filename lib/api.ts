@@ -1,10 +1,14 @@
 import type {
-  Category,
-  Product,
-  ProductListItem,
-  PaginatedResponse,
-  ComparisonRequest,
-  ComparisonResponse,
+  CategoryTreeDTO,
+  CategoryDetailDTO,
+  AttributeGroupDTO,
+  CategorySummaryDTO,
+  ProductSummaryDTO,
+  ProductDetailDTO,
+  Page,
+  ComparisonRequestDTO,
+  ComparisonDTO,
+  ComparisonDiffDTO,
 } from './types';
 
 const API_BASE = 'http://localhost:8080';
@@ -19,65 +23,87 @@ async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> 
   });
 
   if (!response.ok) {
-    throw new Error(`API Error: ${response.status} ${response.statusText}`);
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || `API Error: ${response.status} ${response.statusText}`);
   }
 
   return response.json();
 }
 
-// Categories
-export async function getCategories(): Promise<Category[]> {
-  return fetchApi<Category[]>('/api/categories');
+// === ENDPOINT 1: GET /api/categories ===
+export async function getCategories(): Promise<CategoryTreeDTO[]> {
+  return fetchApi<CategoryTreeDTO[]>('/api/categories');
 }
 
-export async function getCategory(id: string): Promise<Category> {
-  return fetchApi<Category>(`/api/categories/${id}`);
+// === ENDPOINT 2: GET /api/categories/{id} ===
+export async function getCategory(id: number): Promise<CategoryDetailDTO> {
+  return fetchApi<CategoryDetailDTO>(`/api/categories/${id}`);
 }
 
+// === ENDPOINT 3: GET /api/categories/{id}/attributes ===
+export async function getCategoryAttributes(id: number): Promise<AttributeGroupDTO[]> {
+  return fetchApi<AttributeGroupDTO[]>(`/api/categories/${id}/attributes`);
+}
+
+// === ENDPOINT 4: GET /api/categories/{id}/comparable-categories ===
+export async function getComparableCategories(id: number): Promise<CategorySummaryDTO[]> {
+  return fetchApi<CategorySummaryDTO[]>(`/api/categories/${id}/comparable-categories`);
+}
+
+// === ENDPOINT 5: GET /api/categories/{id}/products ===
 export async function getCategoryProducts(
-  categoryId: string,
+  categoryId: number,
   page: number = 0,
-  size: number = 12
-): Promise<PaginatedResponse<ProductListItem>> {
-  return fetchApi<PaginatedResponse<ProductListItem>>(
-    `/api/categories/${categoryId}/products?page=${page}&size=${size}`
+  size: number = 10,
+  sort: string = 'id,asc'
+): Promise<Page<ProductSummaryDTO>> {
+  const params = new URLSearchParams({
+    page: String(page),
+    size: String(size),
+    sort,
+  });
+  return fetchApi<Page<ProductSummaryDTO>>(
+    `/api/categories/${categoryId}/products?${params.toString()}`
   );
 }
 
-// Products
-export async function getProduct(id: string): Promise<Product> {
-  return fetchApi<Product>(`/api/products/${id}`);
+// === ENDPOINT 6: GET /api/products/{id} ===
+export async function getProduct(id: string): Promise<ProductDetailDTO> {
+  return fetchApi<ProductDetailDTO>(`/api/products/${id}`);
 }
 
-export async function searchProducts(
-  params: {
-    categoryId?: string;
-    q?: string;
-    page?: number;
-    size?: number;
-  }
-): Promise<PaginatedResponse<ProductListItem>> {
-  const searchParams = new URLSearchParams();
-  if (params.categoryId) searchParams.set('categoryId', params.categoryId);
-  if (params.q) searchParams.set('q', params.q);
+// === ENDPOINT 7: GET /api/products/search ===
+export async function searchProducts(params: {
+  categoryId: number;
+  q: string;
+  page?: number;
+  size?: number;
+  sort?: string;
+}): Promise<Page<ProductSummaryDTO>> {
+  const searchParams = new URLSearchParams({
+    categoryId: String(params.categoryId),
+    q: params.q,
+  });
   if (params.page !== undefined) searchParams.set('page', String(params.page));
   if (params.size !== undefined) searchParams.set('size', String(params.size));
+  if (params.sort) searchParams.set('sort', params.sort);
   
-  return fetchApi<PaginatedResponse<ProductListItem>>(
+  return fetchApi<Page<ProductSummaryDTO>>(
     `/api/products/search?${searchParams.toString()}`
   );
 }
 
-// Comparisons
-export async function compareProducts(request: ComparisonRequest): Promise<ComparisonResponse> {
-  return fetchApi<ComparisonResponse>('/api/comparisons', {
+// === ENDPOINT 8: POST /api/comparisons ===
+export async function compareProducts(request: ComparisonRequestDTO): Promise<ComparisonDTO> {
+  return fetchApi<ComparisonDTO>('/api/comparisons', {
     method: 'POST',
     body: JSON.stringify(request),
   });
 }
 
-export async function compareProductsDiff(request: ComparisonRequest): Promise<ComparisonResponse> {
-  return fetchApi<ComparisonResponse>('/api/comparisons/diff', {
+// === ENDPOINT 9: POST /api/comparisons/diff ===
+export async function compareProductsDiff(request: ComparisonRequestDTO): Promise<ComparisonDiffDTO> {
+  return fetchApi<ComparisonDiffDTO>('/api/comparisons/diff', {
     method: 'POST',
     body: JSON.stringify(request),
   });

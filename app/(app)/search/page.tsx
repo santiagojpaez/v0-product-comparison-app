@@ -4,24 +4,29 @@ import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Search, Info } from 'lucide-react';
 import { getCategories, searchProducts } from '@/lib/api';
-import type { Category, ProductListItem, PaginatedResponse } from '@/lib/types';
+import type { CategoryTreeDTO, ProductSummaryDTO, Page } from '@/lib/types';
 import { ProductGrid } from '@/components/product-grid';
 import { Button } from '@/components/ui/button';
+
+interface FlatCategory {
+  id: number;
+  name: string;
+}
 
 function SearchContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const q = searchParams.get('q') || '';
-  const categoryId = searchParams.get('categoryId') || '';
+  const categoryIdParam = searchParams.get('categoryId') || '';
 
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [productsData, setProductsData] = useState<PaginatedResponse<ProductListItem> | null>(null);
+  const [categories, setCategories] = useState<FlatCategory[]>([]);
+  const [productsData, setProductsData] = useState<Page<ProductSummaryDTO> | null>(null);
   const [page, setPage] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState(q);
-  const [selectedCategory, setSelectedCategory] = useState(categoryId);
+  const [selectedCategory, setSelectedCategory] = useState(categoryIdParam);
 
   // Load categories on mount
   useEffect(() => {
@@ -36,10 +41,17 @@ function SearchContent() {
     loadCategories();
   }, []);
 
-  // Search when params change
+  // Search when params change - both categoryId and q are required
   useEffect(() => {
     async function performSearch() {
-      if (!q && !categoryId) {
+      // Both categoryId and q are required by the API
+      if (!q || !categoryIdParam) {
+        setProductsData(null);
+        return;
+      }
+
+      const categoryId = Number(categoryIdParam);
+      if (isNaN(categoryId) || categoryId <= 0) {
         setProductsData(null);
         return;
       }
@@ -48,8 +60,8 @@ function SearchContent() {
         setIsLoading(true);
         setError(null);
         const results = await searchProducts({
-          q: q || undefined,
-          categoryId: categoryId || undefined,
+          q,
+          categoryId,
           page,
           size: 12,
         });
@@ -61,13 +73,22 @@ function SearchContent() {
       }
     }
     performSearch();
-  }, [q, categoryId, page]);
+  }, [q, categoryIdParam, page]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!searchQuery.trim()) {
+      setError('Ingresá un término de búsqueda');
+      return;
+    }
+    if (!selectedCategory) {
+      setError('Seleccioná una categoría');
+      return;
+    }
+    setError(null);
     const params = new URLSearchParams();
-    if (searchQuery) params.set('q', searchQuery);
-    if (selectedCategory) params.set('categoryId', selectedCategory);
+    params.set('q', searchQuery.trim());
+    params.set('categoryId', selectedCategory);
     setPage(0);
     router.push(`/search?${params.toString()}`);
   };
@@ -82,7 +103,7 @@ function SearchContent() {
           {/* Search Input */}
           <div className="flex-1">
             <label htmlFor="search-input" className="mb-1 block text-sm font-medium text-black">
-              Buscar
+              Buscar <span className="text-[#F23D4F]">*</span>
             </label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -92,6 +113,7 @@ function SearchContent() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Escribí lo que querés encontrar..."
+                maxLength={200}
                 className="w-full rounded-md border border-gray-300 py-2 pl-10 pr-4 text-black placeholder:text-gray-400 focus:border-[#3483FA] focus:outline-none focus:ring-1 focus:ring-[#3483FA]"
               />
             </div>
@@ -100,7 +122,7 @@ function SearchContent() {
           {/* Category Select */}
           <div className="md:w-64">
             <label htmlFor="category-select" className="mb-1 block text-sm font-medium text-black">
-              Categoría
+              Categoría <span className="text-[#F23D4F]">*</span>
             </label>
             <select
               id="category-select"
@@ -108,7 +130,7 @@ function SearchContent() {
               onChange={(e) => setSelectedCategory(e.target.value)}
               className="w-full rounded-md border border-gray-300 bg-white px-4 py-2 text-black focus:border-[#3483FA] focus:outline-none focus:ring-1 focus:ring-[#3483FA]"
             >
-              <option value="">Todas las categorías</option>
+              <option value="">Seleccionar categoría</option>
               {categories.map((cat) => (
                 <option key={cat.id} value={cat.id}>
                   {cat.name}
@@ -127,6 +149,9 @@ function SearchContent() {
             </Button>
           </div>
         </div>
+        <p className="mt-2 text-xs text-[#999999]">
+          * Ambos campos son requeridos para la búsqueda
+        </p>
       </form>
 
       {/* Results */}
@@ -141,8 +166,7 @@ function SearchContent() {
       ) : productsData ? (
         <div>
           <p className="mb-4 text-sm text-[#666666]">
-            {productsData.totalElements} resultados
-            {q && <span> para &quot;{q}&quot;</span>}
+            {productsData.totalElements} resultados para &quot;{q}&quot;
           </p>
           <ProductGrid
             products={productsData.content}
@@ -157,7 +181,7 @@ function SearchContent() {
           <Search className="mb-4 h-12 w-12 text-[#999999]" />
           <p className="text-lg font-medium text-black">Buscá productos para comparar</p>
           <p className="mt-2 text-sm text-[#999999]">
-            Escribí lo que querés encontrar o seleccioná una categoría
+            Ingresá un término de búsqueda y seleccioná una categoría
           </p>
         </div>
       )}
@@ -177,14 +201,16 @@ export default function SearchPage() {
   );
 }
 
-// Helper to flatten category tree
-function flattenCategories(categories: Category[]): Category[] {
-  const result: Category[] = [];
-  function traverse(cats: Category[]) {
+// Helper to flatten category tree - only include leaf categories
+function flattenCategories(categories: CategoryTreeDTO[]): FlatCategory[] {
+  const result: FlatCategory[] = [];
+  function traverse(cats: CategoryTreeDTO[]) {
     for (const cat of cats) {
-      result.push(cat);
       if (cat.children && cat.children.length > 0) {
         traverse(cat.children);
+      } else {
+        // Only add leaf categories
+        result.push({ id: cat.id, name: cat.name });
       }
     }
   }

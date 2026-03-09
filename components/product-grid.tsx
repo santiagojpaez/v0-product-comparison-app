@@ -1,12 +1,12 @@
 'use client';
 
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import type { ProductListItem } from '@/lib/types';
+import type { ProductSummaryDTO } from '@/lib/types';
 import { ProductCard } from './product-card';
 import { Button } from '@/components/ui/button';
 
 interface ProductGridProps {
-  products: ProductListItem[];
+  products: ProductSummaryDTO[];
   page: number;
   totalPages: number;
   onPageChange: (page: number) => void;
