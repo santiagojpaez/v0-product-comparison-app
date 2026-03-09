@@ -1,0 +1,130 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+/* Mercado Libre Color Palette */
+:root {
+  /* ML Primary Yellow */
+  --ml-yellow: #FFE600;
+  --ml-yellow-hover: #FFD000;
+  
+  /* ML Blues */
+  --ml-blue: #3483FA;
+  --ml-blue-hover: #2968C8;
+  
+  /* ML Greens */
+  --ml-green: #00A650;
+  --ml-green-light: #F0FFF4;
+  
+  /* ML Grays */
+  --ml-gray-bg: #EBEBEB;
+  --ml-gray-light: #F7F7F7;
+  --ml-gray-medium: #999999;
+  --ml-gray-dark: #666666;
+  
+  /* ML Other */
+  --ml-orange: #FF7733;
+  --ml-red: #F23D4F;
+  
+  /* Design tokens */
+  --background: #EBEBEB;
+  --foreground: #000000;
+  --card: #FFFFFF;
+  --card-foreground: #000000;
+  --popover: #FFFFFF;
+  --popover-foreground: #000000;
+  --primary: #FFE600;
+  --primary-foreground: #000000;
+  --secondary: #FFFFFF;
+  --secondary-foreground: #000000;
+  --muted: #F7F7F7;
+  --muted-foreground: #666666;
+  --accent: #3483FA;
+  --accent-foreground: #FFFFFF;
+  --destructive: #F23D4F;
+  --destructive-foreground: #FFFFFF;
+  --border: #E0E0E0;
+  --input: #FFFFFF;
+  --ring: #3483FA;
+  --chart-1: #FFE600;
+  --chart-2: #3483FA;
+  --chart-3: #00A650;
+  --chart-4: #FF7733;
+  --chart-5: #666666;
+  --radius: 6px;
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #000000;
+  --sidebar-primary: #FFE600;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: #F7F7F7;
+  --sidebar-accent-foreground: #000000;
+  --sidebar-border: #E0E0E0;
+  --sidebar-ring: #3483FA;
+}
+
+/* This app doesn't use dark mode - ML style is always light */
+
+@theme inline {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  
+  /* ML Custom Colors */
+  --color-ml-yellow: var(--ml-yellow);
+  --color-ml-yellow-hover: var(--ml-yellow-hover);
+  --color-ml-blue: var(--ml-blue);
+  --color-ml-blue-hover: var(--ml-blue-hover);
+  --color-ml-green: var(--ml-green);
+  --color-ml-green-light: var(--ml-green-light);
+  --color-ml-gray-bg: var(--ml-gray-bg);
+  --color-ml-gray-light: var(--ml-gray-light);
+  --color-ml-gray-medium: var(--ml-gray-medium);
+  --color-ml-gray-dark: var(--ml-gray-dark);
+  --color-ml-orange: var(--ml-orange);
+  --color-ml-red: var(--ml-red);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
